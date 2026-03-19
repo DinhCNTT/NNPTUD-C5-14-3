@@ -2,16 +2,17 @@ var express = require('express');
 var router = express.Router();
 let slugify = require('slugify');
 let productModel = require('../schemas/products')
+let inventoryModel = require('../schemas/inventories')
 
 /* GET users listing. */
 router.get('/', async function (req, res, next) {
     let queries = req.query;
-    let titleQ = queries.title ? queries.title.toLowerCase() :'';
+    let titleQ = queries.title ? queries.title.toLowerCase() : '';
     let max = queries.max ? queries.max : 10000;
     let min = queries.min ? queries.min : 0;
     let data = await productModel.find({
         isDeleted: false,
-        title: new RegExp(titleQ,'i'),
+        title: new RegExp(titleQ, 'i'),
         price: {
             $gte: min,
             $lte: max
@@ -71,21 +72,35 @@ router.get('/:id', async function (req, res, next) {
 // });
 //CREATE UPDATE DELETE
 router.post('/', async function (req, res) {
-    let newProduct = new productModel({
-        title: req.body.title,
-        slug: slugify(req.body.title, {
-            replacement: '-',
-            remove: undefined,
-            lower: true,
-            strict: true
-        }),
-        price: req.body.price,
-        description: req.body.description,
-        category: req.body.category,
-        images: req.body.images
-    })
-    await newProduct.save()
-    res.send(newProduct)
+    try {
+        let newProduct = new productModel({
+            title: req.body.title,
+            slug: slugify(req.body.title, {
+                replacement: '-',
+                remove: undefined,
+                lower: true,
+                strict: true
+            }),
+            price: req.body.price,
+            description: req.body.description,
+            category: req.body.category,
+            images: req.body.images
+        })
+        await newProduct.save()
+        // Tạo inventory tương ứng khi tạo product
+        let newInventory = new inventoryModel({
+            product: newProduct._id,
+            stock: 0,
+            reserved: 0,
+            soldCount: 0
+        })
+        await newInventory.save()
+        res.send({ product: newProduct, inventory: newInventory })
+    } catch (error) {
+        res.status(500).send({
+            message: error.message
+        })
+    }
 })
 router.put('/:id', async function (req, res) {
 
